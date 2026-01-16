@@ -3,6 +3,9 @@ promox환경 IaC코드
 
 
 ## Cloud Template 생성
+
+Template은 Proxmox Node에서 진행
+
 ```bash
 qm create 5000 --memory 2048 --core 2 --name ubuntu-24.04 --net0 virtio,bridge=vmbr0
 cd /var/lib/vz/template/iso/
@@ -22,6 +25,7 @@ cd proxmox
 tofu init
 tofu plan
 tofu apply
+
 ```
 
 
