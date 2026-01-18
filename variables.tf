@@ -1,7 +1,6 @@
 variable "proxmox_api_url" {
   description = "https://proxmox.example.com:8006/api2/json"
-  type        = string
-  default     = "https://192.168.0.13:8006/api2/json"  
+  type        = string 
 }
 
 variable "proxmox_user" {
