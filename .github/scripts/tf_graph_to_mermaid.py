@@ -5,77 +5,79 @@ import re
 def main():
     print("graph TD")
     
-    # regex to match: "node_a" -> "node_b"
-    # and optional label: [label = "foo"]
-    edge_pattern = re.compile(r'"([^"]+)"\s*->\s*"([^"]+)"(?:\s*\[label\s*=\s*"([^"]+)"\])?')
-    
-    # regex to match node definition: "node_a" [label = "foo"]
-    node_pattern = re.compile(r'"([^"]+)"\s*\[label\s*=\s*"([^"]+)"\]')
+    # Regex to match edges: "node_a" -> "node_b"
+    # Handles escaped quotes in node names e.g. "provider[\"registry...\"]"
+    edge_pattern = re.compile(r'"((?:[^"\\]|\\.)+)"\s*->\s*"((?:[^"\\]|\\.)+)"')
 
-    # We want to skip some specific terraform nodes that clutter the graph usually
-    skip_keywords = ["root", "meta.count-boundary", "var.", "provider."]
+    # Regex to match node definitions (optional, but good for parsing labels if needed)
+    # "node_a" [label = "foo", shape = "box"]
+    # We won't use this heavily but good to have correct regex
+    node_pattern = re.compile(r'"((?:[^"\\]|\\.)+)"\s*\[')
 
-    nodes = {}
+    # Keywords to skip. 
+    # REMOVED "root" because OpenTofu prefixes everything with "[root]"
+    # REMOVED "provider." and "var." to show full graph, or can keep if user wants simplified.
+    # Let's keep it minimal to just technical internals.
+    skip_keywords = ["meta.count-boundary"]
+
     edges = []
+    
+    # helper to clean node names for mermaid (remove [root], (expand), quote junk)
+    def clean_label(label):
+        # Remove [root] prefix
+        s = label.replace("[root] ", "")
+        # Remove (expand), (close) suffixes
+        s = re.sub(r'\s*\((?:expand|close|reference)\)', '', s)
+        # Remove "var." prefix for cleaner look (optional)
+        # s = s.replace("var.", "")
+        
+        # If it's a provider, clean it up
+        # provider["registry..."] -> provider.proxmox
+        if "provider[" in s:
+            match = re.search(r'provider\[\\"([^"]+)\\"\]', s)
+            if match:
+                # registry.opentofu.org/telmate/proxmox -> proxmox
+                return "provider." + match.group(1).split('/')[-1]
+            return "provider"
+            
+        return s
 
     for line in sys.stdin:
         line = line.strip()
         
-        # Check for edges first
+        # Check for edges
         edge_match = edge_pattern.search(line)
         if edge_match:
-            src, dst, label = edge_match.groups()
+            src_raw, dst_raw = edge_match.groups()
             
-            # Simple filtering
-            if any(k in src for k in skip_keywords) or any(k in dst for k in skip_keywords):
+            # Use raw strings for exclusion check to be safe
+            if any(k in src_raw for k in skip_keywords) or any(k in dst_raw for k in skip_keywords):
                 continue
-                
-            # Clean up names for Mermaid (remove quotes, etc if needed, but Mermaid handles strings in id if quoted? No, simpler to sanitize)
-            # Terraform names usually contain dots. Mermaid might need escaping or using id/label mapping.
-            # We will use hash or simplified ID for mermaid nodes and attach labels.
             
-            # For simplicity, let's just use the raw names but replace quotes with nothing if they are around it?
-            # The regex captures inside quotes, so src/dst are clean strings.
+            src_clean = clean_label(src_raw)
+            dst_clean = clean_label(dst_raw)
             
-            edges.append((src, dst, label))
-            continue
+            # Avoid self-loops if cleaning made them identical
+            if src_clean == dst_clean:
+                continue
 
-        # Check for node definitions (to get better labels if available)
-        node_match = node_pattern.search(line)
-        if node_match:
-            node_id, label = node_match.groups()
-            if any(k in node_id for k in skip_keywords):
-                continue
-            nodes[node_id] = label
+            edges.append((src_clean, dst_clean))
 
     # Print definitions
-    # To avoid huge graphs, we might want to just print edges using the ids, 
-    # but cleaning them to valid mermaid IDs (alphanumeric).
-    
-    def sanitize(s):
+    # sanitize for ID: alphanumeric only
+    def sanitize_id(s):
         return re.sub(r'[^a-zA-Z0-9_]', '_', s)
 
-    # Track printed nodes to avoid duplicates if we wanted to add class defs
+    printed_edges = set()
     
-    for src, dst, label in edges:
-        s_id = sanitize(src)
-        d_id = sanitize(dst)
+    for src, dst in edges:
+        if (src, dst) in printed_edges:
+            continue
+        printed_edges.add((src, dst))
         
-        # We can try to make the label readable. 
-        # Terraform node names like 'proxmox_vm_qemu.k8s_master' are good labels.
-        s_lbl = src.split('.')[-1] + " (" + src.split('.')[-2] + ")" if '.' in src else src
-        d_lbl = dst.split('.')[-1] + " (" + dst.split('.')[-2] + ")" if '.' in dst else dst
+        s_id = sanitize_id(src)
+        d_id = sanitize_id(dst)
         
-        # If we have a better label from the node def, use it? Dictionary usually has e.g. "proxmox_vm_qemu.k8s_master"
-        if src in nodes:
-            # nodes dict label often contains Type and Name
-            pass 
-
-        # Mermaid syntax: A[Label] --> B[Label]
-        # Only attach label to node first time? 
-        # Simpler: id1["name"] --> id2["name"]
-        
-        # Use full name as label for clarity
         print(f'    {s_id}["{src}"] --> {d_id}["{dst}"]')
 
 if __name__ == "__main__":
