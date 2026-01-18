@@ -29,11 +29,11 @@ jobs:
 
       - name: OpenTofu Init
         env:
-          TF_VAR_proxmox_password: ${{ secrets.PROXMOX_PASSWORD }}
-          TF_VAR_ssh_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
+          TF_VAR_proxmox_password: ${{ env.PROXMOX_PASSWORD }}
+          TF_VAR_ssh_public_key: ${{ env.SSH_PUBLIC_KEY }}
           # Mock values for vars that are not sensitive but required
-          TF_VAR_proxmox_api_url: "https://mock-url:8006/api2/json"
-          TF_VAR_proxmox_user: "mock@pam"
+          TF_VAR_proxmox_api_url: "https://192.168.0.13:8006/api2/json"
+          TF_VAR_proxmox_user: "root@pam"
         run: tofu init
 
       - name: Generate OpenTofu Graph
