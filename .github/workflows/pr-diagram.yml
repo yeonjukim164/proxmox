@@ -1,0 +1,60 @@
+name: OpenTofu Graph Diagram
+
+on:
+  pull_request:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  diagram:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: latest
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: OpenTofu Init
+        env:
+          TF_VAR_proxmox_password: ${{ secrets.PROXMOX_PASSWORD }}
+          TF_VAR_ssh_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
+          # Mock values for vars that are not sensitive but required
+          TF_VAR_proxmox_api_url: "https://mock-url:8006/api2/json"
+          TF_VAR_proxmox_user: "mock@pam"
+        run: tofu init
+
+      - name: Generate OpenTofu Graph
+        run: tofu graph > graph.dot
+
+      - name: Convert to Mermaid
+        run: |
+          chmod +x .github/scripts/tf_graph_to_mermaid.py
+          cat graph.dot | python3 .github/scripts/tf_graph_to_mermaid.py > graph.mmd
+
+      - name: Comment Diagram on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const mermaid = fs.readFileSync('graph.mmd', 'utf8');
+            const body = `### OpenTofu Resource Graph\n\n\`\`\`mermaid\n${mermaid}\n\`\`\``;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
