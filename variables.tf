@@ -43,10 +43,17 @@ variable "vm_storage_pool" {
 variable "ssh_public_key" {
   description = "SSH public key to inject into VMs via Cloud-Init"
   type        = string
+
 }
 
 variable "default_user" {
   description = "Default user for Cloud-Init"
   type        = string
   default     = "kubeadm"
+}
+
+variable "ssh_private_key_path" {
+  description = "Path to the private SSH key for VM connection"
+  type        = string
+  default     = "~/.ssh/id_rsa" # 본인의 로컬 개인키 경로
 }
