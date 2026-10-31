@@ -10,27 +10,9 @@ resource "proxmox_download_file" "ubuntu_cloud_image" {
   checksum_algorithm = "sha256"
 }
 
-# 2) cloud-init vendor-data: clone 된 VM 의 첫 부팅 시 qemu-guest-agent 설치
+# 2) 템플릿 VM
+#    cloud-init vendor-data(snippets/ubuntu-vendor-data.yaml)로 clone 된 VM 의 첫 부팅 시 qemu-guest-agent 설치.
 #    vendor-data 는 Proxmox 가 생성하는 user-data(계정, SSH 키, 비밀번호)와 함께 적용됩니다.
-resource "proxmox_virtual_environment_file" "vendor_data" {
-  node_name    = var.node_name
-  datastore_id = var.datastore_id
-  content_type = "snippets"
-
-  source_raw {
-    file_name = "ubuntu-vendor-data.yaml"
-    data      = <<-EOF
-      #cloud-config
-      package_update: true
-      packages:
-        - qemu-guest-agent
-      runcmd:
-        - systemctl enable --now qemu-guest-agent
-    EOF
-  }
-}
-
-# 3) 템플릿 VM
 #    계정/SSH 키/IP 는 템플릿에 넣지 않고, clone 하는 VM 스택에서 VM 마다 지정합니다.
 resource "proxmox_virtual_environment_vm" "ubuntu_template" {
   node_name   = var.node_name
@@ -69,7 +51,7 @@ resource "proxmox_virtual_environment_vm" "ubuntu_template" {
 
   initialization {
     datastore_id        = var.datastore_id
-    vendor_data_file_id = proxmox_virtual_environment_file.vendor_data.id
+    vendor_data_file_id = var.vendor_data_file_id
 
     ip_config {
       ipv4 {

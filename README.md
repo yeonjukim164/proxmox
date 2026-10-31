@@ -7,6 +7,7 @@ OpenTofu + [`bpg/proxmox`](https://github.com/bpg/terraform-provider-proxmox) pr
 .
 ├── .github/workflows/tofu.yml   # PR: plan  /  main merge: apply + state 커밋  /  수동 실행
 ├── template/                    # Ubuntu 26.04 LTS 클라우드 이미지 템플릿 (VMID 5000)
+├── snippets/                    # cloud-init snippet (노드에 수동 업로드)
 └── state/                       # 암호화된 tofu state (CI 가 관리, 직접 수정 금지)
 ```
 
@@ -15,13 +16,13 @@ OpenTofu + [`bpg/proxmox`](https://github.com/bpg/terraform-provider-proxmox) pr
                                                                 │
                 main merge ──▶ [GitHub runner] plan → apply → state/ 암호화 커밋 (github-actions[bot])
 
-GitHub runner ──(인터넷)──▶ 공유기 포트포워딩 ──▶ Proxmox (API 8006 / SSH 22)
+GitHub runner ──(인터넷)──▶ 공유기 포트포워딩 (DDNS:18006) ──▶ Proxmox API (192.168.0.13:8006)
 ```
 
 | 항목 | 값 |
 |---|---|
 | Proxmox VE | 9.2 (`pve`, 내부 192.168.0.13) |
-| 인증 | API Token (`tofu@pve!tofu-token`) + SSH 키 (snippet 업로드 전용) |
+| 인증 | API Token (`tofu@pve!tofu-token`) 만 사용 (SSH 미사용) |
 | state | `state/<stack>.state.json` (OpenTofu state 암호화, AES-GCM + PBKDF2) |
 
 ---
@@ -64,27 +65,7 @@ pveum user token remove tofu@pve tofu-token
 pveum user token add tofu@pve tofu-token --privsep 0     # 재발급 → GitHub Secret 갱신
 ```
 
-### 1-2. SSH 키 등록 (snippet 업로드 전용)
-
-Proxmox API 는 snippet(cloud-init 설정 파일) 업로드를 지원하지 않아서, 이 작업에만 SSH 를 사용합니다.
-
-```bash
-# 작업 PC: CI 전용 키 생성 (이미 있으면 생략)
-ssh-keygen -t ed25519 -N "" -C "tofu-ci@proxmox" -f ~/.ssh/proxmox_tofu_ed25519
-cat ~/.ssh/proxmox_tofu_ed25519.pub
-```
-
-```bash
-# Proxmox 노드: 위 공개키를 root 의 authorized_keys 에 추가
-echo 'ssh-ed25519 AAAA... tofu-ci@proxmox' >> /root/.ssh/authorized_keys
-```
-
-```bash
-# 작업 PC: 접속 확인
-ssh -i ~/.ssh/proxmox_tofu_ed25519 root@192.168.0.13 pveversion
-```
-
-### 1-3. 스토리지 콘텐츠 허용
+### 1-2. 스토리지 콘텐츠 허용
 
 `local` 스토리지에 `import`(이미지 가져오기)와 `snippets` 가 허용되어 있어야 합니다.
 
@@ -92,33 +73,40 @@ ssh -i ~/.ssh/proxmox_tofu_ed25519 root@192.168.0.13 pveversion
 pvesm set local --content images,rootdir,vztmpl,backup,iso,snippets,import
 ```
 
+### 1-3. cloud-init snippet 업로드 (내부망에서 수동)
+
+Proxmox API 는 snippet 업로드를 지원하지 않아서, CI 는 SSH 없이 **이미 노드에 있는 snippet 을 참조만** 합니다.
+`snippets/` 의 파일을 추가하거나 수정했다면 내부망에서 직접 올려주세요.
+
+```bash
+# 작업 PC (내부망)
+scp snippets/ubuntu-vendor-data.yaml root@192.168.0.13:/var/lib/vz/snippets/
+```
+
+| 파일 | Proxmox ID | 용도 |
+|---|---|---|
+| `snippets/ubuntu-vendor-data.yaml` | `local:snippets/ubuntu-vendor-data.yaml` | 첫 부팅 시 `qemu-guest-agent` 설치 |
+
 ---
 
 ## 2. 외부 접속 (공유기 포트포워딩)
 
-GitHub 제공 runner 는 인터넷에서 실행되므로, 공유기에서 Proxmox 로 포트포워딩합니다.
-가정용 회선은 IP 가 바뀔 수 있으니 공유기의 **DDNS** 호스트명(예: `myhome.iptime.org`)을 사용하세요.
+GitHub 제공 runner 는 인터넷에서 실행되므로, 공유기에서 Proxmox API 만 포트포워딩합니다 (SSH 는 열지 않음).
+가정용 회선은 IP 가 바뀔 수 있으니 공유기의 **DDNS** 호스트명(예: `xxxx.iptime.org`)을 사용하세요.
 
-| 외부 포트 (예시) | 내부 대상 | 용도 |
+| 외부 포트 | 내부 대상 | 용도 |
 |---|---|---|
-| `58006/TCP` | `192.168.0.13:8006` | Proxmox API |
-| `58022/TCP` | `192.168.0.13:22` | SSH (snippet 업로드) |
+| `18006/TCP` | `192.168.0.13:8006` | Proxmox API / 웹 UI |
 
 > GitHub runner 의 IP 는 매번 바뀌는 대규모 대역이라 IP 허용 목록으로 막기 어렵습니다.
-> **Proxmox API 와 root SSH 가 인터넷에 열리므로 아래 보안 설정을 반드시 적용하세요.**
+> 웹 UI 로그인 화면도 인터넷에 열리므로 아래 항목을 권장합니다.
 
-### 보안 체크리스트
+### 보안 권장 사항
 
-1. **외부 포트는 기본값(8006/22)이 아닌 번호 사용** (위 표 예시)
-2. **SSH 는 키 로그인만 허용** (비밀번호 로그인 차단)
-   ```bash
-   printf '%s\n' 'PermitRootLogin prohibit-password' 'PasswordAuthentication no' 'KbdInteractiveAuthentication no' > /etc/ssh/sshd_config.d/10-hardening.conf
-   sshd -t && systemctl reload ssh
-   ```
-   적용 전에 본인 PC 의 키도 `authorized_keys` 에 있는지 확인하세요. (웹 UI 콘솔은 계속 사용 가능)
-3. **웹 UI 로그인(root@pam)에 2단계 인증(TOTP) 적용**: Datacenter → Permissions → Two Factor → Add → TOTP
-   (API Token 은 2단계 인증의 영향을 받지 않습니다)
-4. **정식 TLS 인증서 적용 (권장)**: 현재는 자체 서명 인증서라 `proxmox_insecure = true` 입니다.
+1. **root 비밀번호는 길고 복잡하게** 유지
+2. **웹 UI 로그인(root@pam)에 2단계 인증(TOTP)**: Datacenter → Permissions → Two Factor → Add → TOTP
+   (API Token 은 2단계 인증의 영향을 받지 않습니다. 복구 키(Recovery Keys)도 함께 발급해 두세요)
+3. **정식 TLS 인증서**: 현재는 자체 서명 인증서라 `proxmox_insecure = true` 입니다.
    인터넷 구간에서는 중간자 공격으로 토큰이 노출될 수 있으므로, Datacenter → ACME 로 DDNS 도메인에
    Let's Encrypt 인증서를 발급한 뒤 `template/variables.tf` 의 `proxmox_insecure` 기본값을 `false` 로 바꾸세요.
 
@@ -128,28 +116,22 @@ GitHub 제공 runner 는 인터넷에서 실행되므로, 공유기에서 Proxmo
 
 | Secret | 예시 | 설명 |
 |---|---|---|
-| `PROXMOX_ENDPOINT` | `https://myhome.iptime.org:58006/` | 외부에서 접근하는 API 주소 |
-| `PROXMOX_SSH_HOST` | `myhome.iptime.org` | SSH 호스트 (DDNS) |
-| `PROXMOX_SSH_PORT` | `58022` | 포트포워딩된 SSH 포트 |
+| `PROXMOX_ENDPOINT` | `https://xxxx.iptime.org:18006/` | 외부에서 접근하는 API 주소 |
 | `PROXMOX_API_TOKEN` | `tofu@pve!tofu-token=xxxxxxxx-...` | 1-1 에서 만든 토큰 |
-| `PROXMOX_SSH_PRIVATE_KEY` | (개인키 파일 내용) | 1-2 에서 만든 `~/.ssh/proxmox_tofu_ed25519` |
 | `TF_STATE_PASSPHRASE` | (임의의 긴 문자열) | state 암호화 비밀번호 (16자 이상) |
 
 ```bash
 R=yeonjukim164/proxmox
-gh secret set PROXMOX_ENDPOINT -R $R --body 'https://<DDNS>:58006/'
-gh secret set PROXMOX_SSH_HOST -R $R --body '<DDNS>'
-gh secret set PROXMOX_SSH_PORT -R $R --body '58022'
-gh secret set PROXMOX_API_TOKEN -R $R                 # 프롬프트에 토큰 붙여넣기
-gh secret set PROXMOX_SSH_PRIVATE_KEY -R $R < ~/.ssh/proxmox_tofu_ed25519
+gh secret set PROXMOX_ENDPOINT -R $R --body 'https://<DDNS>:18006/'
+gh secret set PROXMOX_API_TOKEN -R $R < ~/.config/proxmox/api-token
 
-# state 암호화 비밀번호: 생성 후 비밀번호 관리자 등에 반드시 따로 보관
-PASS="$(openssl rand -base64 32)"; echo "$PASS"
-gh secret set TF_STATE_PASSPHRASE -R $R --body "$PASS"; unset PASS
+# state 암호화 비밀번호: 파일로 생성 후 비밀번호 관리자 등에 반드시 따로 백업
+( umask 077; openssl rand -base64 32 | tr -d '\n' > ~/.config/proxmox/state-passphrase )
+gh secret set TF_STATE_PASSPHRASE -R $R < ~/.config/proxmox/state-passphrase
 ```
 
 > ⚠️ **`TF_STATE_PASSPHRASE` 를 잃어버리면 state 를 복구할 수 없습니다.**
-> GitHub Secret 은 다시 읽을 수 없으므로, 생성할 때 출력된 값을 별도로 보관하세요.
+> GitHub Secret 은 다시 읽을 수 없으므로 `~/.config/proxmox/state-passphrase` 를 별도로 백업하세요.
 
 ---
 
@@ -188,9 +170,8 @@ curl -s https://cloud-images.ubuntu.com/releases/resolute/release-YYYYMMDD/SHA25
 ```bash
 git pull                     # 최신 state 받기
 cd template
-export TF_VAR_proxmox_api_token='tofu@pve!tofu-token=...'
-export TF_VAR_proxmox_ssh_private_key="$(cat ~/.ssh/proxmox_tofu_ed25519)"
-export TF_VAR_state_passphrase='...'
+export TF_VAR_proxmox_api_token="$(cat ~/.config/proxmox/api-token)"
+export TF_VAR_state_passphrase="$(cat ~/.config/proxmox/state-passphrase)"
 tofu init
 tofu plan
 ```

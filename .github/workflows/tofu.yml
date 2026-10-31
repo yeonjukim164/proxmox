@@ -1,12 +1,10 @@
-# OpenTofu 파이프라인 (GitHub-hosted runner → 공유기 포트포워딩 → Proxmox)
+# OpenTofu 파이프라인 (GitHub-hosted runner → 공유기 포트포워딩 → Proxmox API)
 #
 #  - Pull Request → main : fmt / validate / plan (plan 결과는 Job Summary 에 표시)
 #  - Push → main (PR merge): plan → 변경이 있으면 apply → 암호화된 state 를 main 에 커밋
 #  - 수동 실행 (Actions 탭 → Run workflow, main 브랜치): plan, 선택 시 apply
 #
-# 필요 Secrets (README 참고):
-#   PROXMOX_ENDPOINT, PROXMOX_SSH_HOST, PROXMOX_SSH_PORT,
-#   PROXMOX_API_TOKEN, PROXMOX_SSH_PRIVATE_KEY, TF_STATE_PASSPHRASE
+# 필요 Secrets (README 참고): PROXMOX_ENDPOINT, PROXMOX_API_TOKEN, TF_STATE_PASSPHRASE
 name: tofu
 
 on:
@@ -60,10 +58,7 @@ jobs:
         working-directory: ${{ inputs.stack || 'template' }}
     env:
       TF_VAR_proxmox_endpoint: ${{ secrets.PROXMOX_ENDPOINT }}
-      TF_VAR_proxmox_ssh_address: ${{ secrets.PROXMOX_SSH_HOST }}
-      TF_VAR_proxmox_ssh_port: ${{ secrets.PROXMOX_SSH_PORT }}
       TF_VAR_proxmox_api_token: ${{ secrets.PROXMOX_API_TOKEN }}
-      TF_VAR_proxmox_ssh_private_key: ${{ secrets.PROXMOX_SSH_PRIVATE_KEY }}
       TF_VAR_state_passphrase: ${{ secrets.TF_STATE_PASSPHRASE }}
 
     steps:
@@ -89,7 +84,7 @@ jobs:
       - name: Check secrets
         run: |
           missing=0
-          for v in proxmox_endpoint proxmox_ssh_address proxmox_ssh_port proxmox_api_token proxmox_ssh_private_key state_passphrase; do
+          for v in proxmox_endpoint proxmox_api_token state_passphrase; do
             name="TF_VAR_${v}"
             if [ -z "${!name}" ]; then echo "::error::${name} 에 해당하는 Secret 이 비어 있습니다"; missing=1; fi
           done

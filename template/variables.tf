@@ -26,24 +26,6 @@ variable "proxmox_api_token" {
   }
 }
 
-variable "proxmox_ssh_private_key" {
-  description = "Proxmox 노드 root SSH 개인키 (snippet 업로드용)"
-  type        = string
-  sensitive   = true
-}
-
-variable "proxmox_ssh_address" {
-  description = "Proxmox 노드 SSH 주소 (CI: DDNS 호스트명)"
-  type        = string
-  default     = "192.168.0.13"
-}
-
-variable "proxmox_ssh_port" {
-  description = "Proxmox 노드 SSH 포트 (CI: 포트포워딩된 외부 포트)"
-  type        = number
-  default     = 22
-}
-
 variable "state_passphrase" {
   description = "state/plan 암호화 비밀번호 (16자 이상). 분실 시 state 복구 불가"
   type        = string
@@ -74,6 +56,12 @@ variable "bridge" {
   description = "네트워크 브리지"
   type        = string
   default     = "vmbr0"
+}
+
+variable "vendor_data_file_id" {
+  description = "qemu-guest-agent 설치용 cloud-init vendor-data snippet (저장소 snippets/ 를 노드에 미리 업로드)"
+  type        = string
+  default     = "local:snippets/ubuntu-vendor-data.yaml"
 }
 
 variable "template_vm_id" {
