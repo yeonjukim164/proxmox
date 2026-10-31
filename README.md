@@ -7,6 +7,7 @@ OpenTofu + [`bpg/proxmox`](https://github.com/bpg/terraform-provider-proxmox) pr
 .
 ├── .github/workflows/tofu.yml   # PR: plan  /  main merge: apply + state 커밋  /  수동 실행
 ├── template/                    # Ubuntu 26.04 LTS 클라우드 이미지 템플릿 (VMID 5000)
+├── k8s/                         # Kubernetes 노드 VM (템플릿 full clone, VMID 100~103)
 ├── snippets/                    # cloud-init snippet (노드에 수동 업로드)
 └── state/                       # 암호화된 tofu state (CI 가 관리, 직접 수정 금지)
 ```
@@ -163,6 +164,20 @@ curl -s https://cloud-images.ubuntu.com/releases/resolute/release-YYYYMMDD/SHA25
 - 디스크: Ubuntu 26.04 클라우드 이미지 (10GB, clone 시 확장), `virtio-scsi-single` + iothread
 - cloud-init: vendor-data snippet 으로 첫 부팅 시 `qemu-guest-agent` 설치
 - 계정 / SSH 키 / IP 는 템플릿에 넣지 않고, clone 하는 VM 스택에서 VM 마다 지정
+
+### Kubernetes 노드 (`k8s/`)
+
+호스트(28 스레드 / RAM 31.2 GiB / 디스크 여유 ~860 GiB)에서 master 는 kubeadm 최소 사양, 나머지는 worker 에 몰아줍니다.
+k8s 는 swap/balloon 을 쓰지 않으므로 RAM 은 초과 할당하지 않고 호스트용 ~3.7 GiB 를 남깁니다.
+
+| VM | VMID | IP | vCPU | RAM | 디스크 |
+|---|---|---|---|---|---|
+| k8s-master | 100 | 192.168.0.31 | 2 | 2 GiB | 40G |
+| k8s-worker-1~3 | 101~103 | 192.168.0.32~34 | 8 | 8.5 GiB | 240G |
+
+- 계정 `kubeadm`, SSH 공개키 로그인만 허용 (비밀번호 없음). 크기/IP 는 `k8s/main.tf` 의 `locals` 에서 변경
+- `template` 스택이 먼저 apply 되어 있어야 합니다 (plan 단계에서 템플릿 VM 존재를 확인).
+  CI 는 `template` → `k8s` 순서로 실행합니다.
 
 ---
 

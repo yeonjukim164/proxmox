@@ -3,6 +3,7 @@
 #  - Pull Request → main : fmt / validate / plan (plan 결과는 Job Summary 에 표시)
 #  - Push → main (PR merge): plan → 변경이 있으면 apply → 암호화된 state 를 main 에 커밋
 #  - 수동 실행 (Actions 탭 → Run workflow, main 브랜치): plan, 선택 시 apply
+#  - 스택은 template → k8s 순서로 하나씩 실행 (k8s 는 template 의 템플릿 VM 을 clone)
 #
 # 필요 Secrets (README 참고): PROXMOX_ENDPOINT, PROXMOX_API_TOKEN, TF_STATE_PASSPHRASE
 name: tofu
@@ -12,19 +13,16 @@ on:
     branches: [main]
     paths:
       - "template/**"
+      - "k8s/**"
       - ".github/workflows/tofu.yml"
   push:
     branches: [main]
     paths:
       - "template/**"
+      - "k8s/**"
       - ".github/workflows/tofu.yml"
   workflow_dispatch:
     inputs:
-      stack:
-        description: "대상 스택 디렉터리"
-        type: choice
-        options: [template]
-        default: template
       apply:
         description: "plan 후 apply 까지 실행 (main 브랜치에서만 동작)"
         type: boolean
@@ -41,23 +39,28 @@ concurrency:
 
 env:
   TOFU_VERSION: "1.11.4"
-  STACK: ${{ inputs.stack || 'template' }}
   TF_IN_AUTOMATION: "true"
   TF_INPUT: "false"
 
 jobs:
   tofu:
-    name: tofu (${{ inputs.stack || 'template' }})
+    name: tofu (${{ matrix.stack }})
     # 포크 PR 에는 Secrets 가 전달되지 않으므로 실행하지 않음
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
+    strategy:
+      # 정의 순서대로 하나씩 실행, 앞 스택이 실패하면 뒤 스택은 취소 (fail-fast)
+      max-parallel: 1
+      matrix:
+        stack: [template, k8s]
     timeout-minutes: 60
     permissions:
       contents: write # apply 후 state 커밋
     defaults:
       run:
-        working-directory: ${{ inputs.stack || 'template' }}
+        working-directory: ${{ matrix.stack }}
     env:
+      STACK: ${{ matrix.stack }}
       TF_VAR_proxmox_endpoint: ${{ secrets.PROXMOX_ENDPOINT }}
       TF_VAR_proxmox_api_token: ${{ secrets.PROXMOX_API_TOKEN }}
       TF_VAR_state_passphrase: ${{ secrets.TF_STATE_PASSPHRASE }}
