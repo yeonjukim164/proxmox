@@ -58,12 +58,6 @@ variable "bridge" {
   default     = "vmbr0"
 }
 
-variable "vendor_data_file_id" {
-  description = "qemu-guest-agent 설치용 cloud-init vendor-data snippet (저장소 snippets/ 를 노드에 미리 업로드)"
-  type        = string
-  default     = "local:snippets/ubuntu-vendor-data.yaml"
-}
-
 variable "template_vm_id" {
   description = "템플릿 VM ID"
   type        = number

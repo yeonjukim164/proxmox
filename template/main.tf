@@ -10,7 +10,16 @@ resource "proxmox_download_file" "ubuntu_cloud_image" {
   checksum_algorithm = "sha256"
 }
 
-# 2) 템플릿 VM
+# 2) vendor-data snippet (노드에 수동 업로드, README 1-3)
+#    plan 이 API 를 실제로 호출하게 하는 역할도 겸함 → 접속 주소/포트포워딩/토큰/snippet 존재를 PR 단계에서 확인
+data "proxmox_file" "vendor_data" {
+  node_name    = var.node_name
+  datastore_id = var.datastore_id
+  content_type = "snippets"
+  file_name    = "ubuntu-vendor-data.yaml"
+}
+
+# 3) 템플릿 VM
 #    cloud-init vendor-data(snippets/ubuntu-vendor-data.yaml)로 clone 된 VM 의 첫 부팅 시 qemu-guest-agent 설치.
 #    vendor-data 는 Proxmox 가 생성하는 user-data(계정, SSH 키, 비밀번호)와 함께 적용됩니다.
 #    계정/SSH 키/IP 는 템플릿에 넣지 않고, clone 하는 VM 스택에서 VM 마다 지정합니다.
@@ -51,7 +60,7 @@ resource "proxmox_virtual_environment_vm" "ubuntu_template" {
 
   initialization {
     datastore_id        = var.datastore_id
-    vendor_data_file_id = var.vendor_data_file_id
+    vendor_data_file_id = data.proxmox_file.vendor_data.id
 
     ip_config {
       ipv4 {
@@ -73,5 +82,10 @@ resource "proxmox_virtual_environment_vm" "ubuntu_template" {
 
   vga {
     type = "serial0"
+  }
+
+  # import_from 은 최초 생성 때만 쓰이므로, 이미지가 바뀌면 템플릿을 다시 만들어야 새 이미지가 반영됨
+  lifecycle {
+    replace_triggered_by = [proxmox_download_file.ubuntu_cloud_image]
   }
 }

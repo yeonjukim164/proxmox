@@ -77,6 +77,7 @@ pvesm set local --content images,rootdir,vztmpl,backup,iso,snippets,import
 
 Proxmox API 는 snippet 업로드를 지원하지 않아서, CI 는 SSH 없이 **이미 노드에 있는 snippet 을 참조만** 합니다.
 `snippets/` 의 파일을 추가하거나 수정했다면 내부망에서 직접 올려주세요.
+노드에 snippet 이 없으면 PR 의 plan 단계에서 실패합니다.
 
 ```bash
 # 작업 PC (내부망)

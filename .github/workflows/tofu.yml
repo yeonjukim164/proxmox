@@ -33,9 +33,10 @@ on:
 permissions:
   contents: read
 
-# state 를 저장소에 커밋하므로 모든 실행을 하나씩 순서대로 처리 (진행 중인 apply 는 취소하지 않음)
+# state 를 저장소에 커밋하므로 main/수동 실행은 하나씩 순서대로 처리 (진행 중인 apply 는 취소하지 않음)
+# PR plan 은 state 를 쓰지 않으므로 그룹을 분리 (같은 그룹이면 대기 중인 main apply 를 PR 실행이 밀어내 취소시킴)
 concurrency:
-  group: tofu-state
+  group: ${{ github.event_name == 'pull_request' && format('tofu-plan-{0}', github.ref) || 'tofu-state' }}
   cancel-in-progress: false
 
 env:

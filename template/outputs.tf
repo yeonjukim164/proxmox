@@ -10,7 +10,7 @@ output "template_name" {
 
 output "vendor_data_file_id" {
   description = "qemu-guest-agent 설치용 vendor-data snippet ID (VM 스택의 initialization.vendor_data_file_id 에 사용)"
-  value       = var.vendor_data_file_id
+  value       = data.proxmox_file.vendor_data.id
 }
 
 output "image_file_id" {
