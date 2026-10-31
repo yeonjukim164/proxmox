@@ -38,3 +38,11 @@ override.tf.json
 terraform.rc
 
 # End of https://www.toptal.com/developers/gitignore/api/terraform
+
+# plan 파일
+tfplan
+*.tfplan
+
+# 암호화 state 는 state/*.state.json 으로 커밋, 백업/잠금 파일은 제외
+state/*.backup
+state/.*.lock.info
