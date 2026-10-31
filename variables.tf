@@ -1,17 +1,21 @@
 variable "proxmox_api_url" {
-  description = "https://proxmox.example.com:8006/api2/json"
+  description = "Proxmox API URL (e.g., https://proxmox.example.com:8006/api2/json)"
   type        = string
-  default     = "https://192.168.0.13:8006/api2/json"  
+  default     = "https://192.168.0.13:8006/api2/json"
 }
 
-variable "proxmox_user" {
-  description = "Proxmox API username (e.g., root@pam)"
+variable "proxmox_api_token_id" {
+  description = "Proxmox API Token ID, '<user>@<realm>!<token-name>' 형식 (e.g., tofu@pve!tofu-token)"
   type        = string
-  default     = "root@pam"
+
+  validation {
+    condition     = can(regex("^[^@!]+@[^@!]+![^@!]+$", var.proxmox_api_token_id))
+    error_message = "proxmox_api_token_id는 '<user>@<realm>!<token-name>' 형식이어야 합니다. (e.g., tofu@pve!tofu-token)"
+  }
 }
 
-variable "proxmox_password" {
-  description = "Proxmox API password"
+variable "proxmox_api_token_secret" {
+  description = "Proxmox API Token secret (토큰 생성 시 한 번만 표시되는 UUID)"
   type        = string
   sensitive   = true
 }
@@ -49,4 +53,10 @@ variable "default_user" {
   description = "Default user for Cloud-Init"
   type        = string
   default     = "kubeadm"
+}
+
+variable "vm_password" {
+  description = "Cloud-Init password for default_user (Proxmox 계정 비밀번호와 분리)"
+  type        = string
+  sensitive   = true
 }

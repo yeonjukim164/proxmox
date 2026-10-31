@@ -40,7 +40,7 @@ resource "proxmox_vm_qemu" "k8s_master" {
   ipconfig0     = "ip=192.168.0.31/24,gw=192.168.0.1"
   ciuser        = var.default_user
   ciupgrade = true
-  cipassword    = var.proxmox_password
+  cipassword    = var.vm_password
   sshkeys       = var.ssh_public_key
 }
 
@@ -87,6 +87,6 @@ resource "proxmox_vm_qemu" "k8s_workers" {
   ipconfig0     = "ip=192.168.0.${32 + count.index}/24,gw=192.168.0.1"
   ciuser        = var.default_user
   ciupgrade = true
-  cipassword    = var.proxmox_password
+  cipassword    = var.vm_password
   sshkeys       = var.ssh_public_key
 }
