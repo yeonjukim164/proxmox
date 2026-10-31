@@ -1,8 +1,9 @@
 # Kubernetes 노드: template 스택의 템플릿(VMID 5000)을 full clone
 #
 # 크기 기준: 호스트 28 스레드 / RAM 31.2 GiB / 디스크 여유 ~860 GiB (2026-10-31 확인)
-#  - master: kubeadm 최소 사양(2 vCPU, 2 GiB). 나머지는 worker 3대에 몰아줌
-#  - RAM 합계 27.5 GiB: k8s 는 swap/balloon 을 쓰지 않아 초과 할당하면 OOM → 호스트용 ~3.7 GiB 만 남김
+#  - master: 2 vCPU, 3 GiB. 2 GiB 는 flannel 에서도 여유 445 MiB 뿐이라, Cilium(노드마다 agent/envoy)과
+#    KFP(Argo CRD 로 apiserver 메모리 증가)를 올리면 OOM 위험 → Cilium 기준 최소로 3 GiB. 나머지는 worker 3대에 몰아줌
+#  - RAM 합계 27.75 GiB: k8s 는 swap/balloon 을 쓰지 않아 초과 할당하면 OOM → 호스트용 ~3.45 GiB 만 남김
 #  - vCPU 합계 26 / 28 스레드, 디스크 합계 760G (호스트·이미지·백업용 ~100G 남김)
 locals {
   node_name      = "pve"
@@ -14,10 +15,10 @@ locals {
   ssh_public_keys = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHLPvzdqa08aNVIcXJCp3Y5JWr0pfyGiKMoc9pp+cqRS"]
 
   nodes = {
-    "k8s-master"   = { vm_id = 100, ip = "192.168.0.31", cores = 2, memory = 2048, disk = 40 }
-    "k8s-worker-1" = { vm_id = 101, ip = "192.168.0.32", cores = 8, memory = 8704, disk = 240 }
-    "k8s-worker-2" = { vm_id = 102, ip = "192.168.0.33", cores = 8, memory = 8704, disk = 240 }
-    "k8s-worker-3" = { vm_id = 103, ip = "192.168.0.34", cores = 8, memory = 8704, disk = 240 }
+    "k8s-master"   = { vm_id = 100, ip = "192.168.0.31", cores = 2, memory = 3072, disk = 40 }
+    "k8s-worker-1" = { vm_id = 101, ip = "192.168.0.32", cores = 8, memory = 8448, disk = 240 }
+    "k8s-worker-2" = { vm_id = 102, ip = "192.168.0.33", cores = 8, memory = 8448, disk = 240 }
+    "k8s-worker-3" = { vm_id = 103, ip = "192.168.0.34", cores = 8, memory = 8448, disk = 240 }
   }
 }
 

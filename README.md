@@ -167,13 +167,13 @@ curl -s https://cloud-images.ubuntu.com/releases/resolute/release-YYYYMMDD/SHA25
 
 ### Kubernetes 노드 (`k8s/`)
 
-호스트(28 스레드 / RAM 31.2 GiB / 디스크 여유 ~860 GiB)에서 master 는 kubeadm 최소 사양, 나머지는 worker 에 몰아줍니다.
-k8s 는 swap/balloon 을 쓰지 않으므로 RAM 은 초과 할당하지 않고 호스트용 ~3.7 GiB 를 남깁니다.
+호스트(28 스레드 / RAM 31.2 GiB / 디스크 여유 ~860 GiB)에서 master 는 Cilium 기준 최소(3 GiB), 나머지는 worker 에 몰아줍니다.
+k8s 는 swap/balloon 을 쓰지 않으므로 RAM 은 초과 할당하지 않고 호스트용 ~3.45 GiB 를 남깁니다.
 
 | VM | VMID | IP | vCPU | RAM | 디스크 |
 |---|---|---|---|---|---|
-| k8s-master | 100 | 192.168.0.31 | 2 | 2 GiB | 40G |
-| k8s-worker-1~3 | 101~103 | 192.168.0.32~34 | 8 | 8.5 GiB | 240G |
+| k8s-master | 100 | 192.168.0.31 | 2 | 3 GiB | 40G |
+| k8s-worker-1~3 | 101~103 | 192.168.0.32~34 | 8 | 8.25 GiB | 240G |
 
 - 계정 `kubeadm`, SSH 공개키 로그인만 허용 (비밀번호 없음). 크기/IP 는 `k8s/main.tf` 의 `locals` 에서 변경
 - `template` 스택이 먼저 apply 되어 있어야 합니다 (plan 단계에서 템플릿 VM 존재를 확인).
