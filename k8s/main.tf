@@ -74,7 +74,10 @@ resource "proxmox_virtual_environment_vm" "node" {
     datastore_id        = local.datastore_id
     vendor_data_file_id = "${local.datastore_id}:snippets/ubuntu-vendor-data.yaml"
 
+    # domain 을 비우면 Proxmox 호스트의 검색 도메인(silvervillage.com, 와일드카드 DNS)이 상속되어
+    # 파드(ndots:5)의 외부 이름 조회가 엉뚱한 IP 로 풀림 → 홈 네트워크 예약 도메인(RFC 8375)으로 고정
     dns {
+      domain  = "home.arpa"
       servers = [local.gateway]
     }
 
