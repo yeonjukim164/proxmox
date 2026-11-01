@@ -5,8 +5,8 @@
 #  - CPU: 시간을 나눠 쓰므로 초과 할당해도 느려질 뿐 죽지 않음 → worker 마다 호스트 전체 28 스레드
 #  - RAM: 초과 할당하면 VM 들이 메모리를 다 쓸 때 호스트가 VM(=노드)을 강제 종료 → 호스트 RAM 한도까지만.
 #    호스트 자체(~1.9 GiB 실측) + QEMU 오버헤드용 ~2.3 GiB 만 남기고 전부 배정 (합계 28.9 GiB)
-#  - master: 2 vCPU, 3 GiB. 2 GiB 는 flannel 에서도 여유 445 MiB 뿐이라, Cilium(노드마다 agent/envoy)과
-#    KFP(Argo CRD 로 apiserver 메모리 증가)를 올리면 OOM 위험 → Cilium 기준 최소로 3 GiB
+#  - master: 4 vCPU, 6 GiB. Kubeflow 26.03 + Argo CD 를 올리면 CRD 가 많아져 kube-apiserver 만 1.2 GiB+
+#    (3 GiB 에서 여유 296 MiB, CPU 136% 실측) → Kubeflow 컨트롤 플레인 기준 최소로 6 GiB. vCPU 는 초과 할당이라 worker 몫이 줄지 않음
 #  - 디스크 합계 760G (호스트·이미지·백업용 ~100G 남김)
 locals {
   node_name      = "pve"
@@ -18,10 +18,10 @@ locals {
   ssh_public_keys = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHLPvzdqa08aNVIcXJCp3Y5JWr0pfyGiKMoc9pp+cqRS"]
 
   nodes = {
-    "k8s-master"   = { vm_id = 100, ip = "192.168.0.31", cores = 2, memory = 3072, disk = 40 }
-    "k8s-worker-1" = { vm_id = 101, ip = "192.168.0.32", cores = 28, memory = 8832, disk = 240 }
-    "k8s-worker-2" = { vm_id = 102, ip = "192.168.0.33", cores = 28, memory = 8832, disk = 240 }
-    "k8s-worker-3" = { vm_id = 103, ip = "192.168.0.34", cores = 28, memory = 8832, disk = 240 }
+    "k8s-master"   = { vm_id = 100, ip = "192.168.0.31", cores = 4, memory = 6144, disk = 40 }
+    "k8s-worker-1" = { vm_id = 101, ip = "192.168.0.32", cores = 28, memory = 7808, disk = 240 }
+    "k8s-worker-2" = { vm_id = 102, ip = "192.168.0.33", cores = 28, memory = 7808, disk = 240 }
+    "k8s-worker-3" = { vm_id = 103, ip = "192.168.0.34", cores = 28, memory = 7808, disk = 240 }
   }
 }
 
