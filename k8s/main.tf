@@ -24,10 +24,34 @@ locals {
   ssh_public_keys = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHLPvzdqa08aNVIcXJCp3Y5JWr0pfyGiKMoc9pp+cqRS"]
 
   nodes = {
-    "k8s-master"   = { vm_id = 100, ip = "192.168.0.31", cores = 4, memory = 6144, disk = 40 }
-    "k8s-worker-1" = { vm_id = 101, ip = "192.168.0.32", cores = 12, memory = 18432, disk = 240 }
-    "k8s-worker-2" = { vm_id = 102, ip = "192.168.0.33", cores = 12, memory = 18432, disk = 240 }
-    "k8s-worker-3" = { vm_id = 103, ip = "192.168.0.34", cores = 12, memory = 18432, disk = 240 }
+    "k8s-master" = {
+      vm_id  = 100
+      ip     = "192.168.0.31"
+      cores  = 4
+      memory = 6144 # MiB, 6 GiB
+      disk   = 40   # GB
+    }
+    "k8s-worker-1" = {
+      vm_id  = 101
+      ip     = "192.168.0.32"
+      cores  = 12
+      memory = 18432 # MiB, 18 GiB
+      disk   = 240   # GB
+    }
+    "k8s-worker-2" = {
+      vm_id  = 102
+      ip     = "192.168.0.33"
+      cores  = 12
+      memory = 18432 # MiB, 18 GiB
+      disk   = 240   # GB
+    }
+    "k8s-worker-3" = {
+      vm_id  = 103
+      ip     = "192.168.0.34"
+      cores  = 12
+      memory = 18432 # MiB, 18 GiB
+      disk   = 240   # GB
+    }
   }
 }
 
