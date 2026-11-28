@@ -2,13 +2,17 @@
 #
 # 크기 기준: 호스트 14 코어 / 28 스레드 / RAM 62 GiB (2026-11-21 `free -h` 확인, 처음 크기를 정할 때는 31.2 GiB) / 디스크 여유 ~860 GiB
 # 원칙: 호스트 자원을 최대한 worker 에 배정 (master 는 필요한 최소)
-#  - CPU: 시간을 나눠 쓰므로 초과 할당해도 느려질 뿐 죽지 않음 → worker 마다 호스트 전체 28 스레드
+#  - CPU: worker 마다 12 vCPU, master 4 vCPU (합계 40, 호스트 28 스레드의 1.4배).
+#    2026-11-28 까지는 worker 마다 28 스레드(합계 92, 3.3배)를 줬으나, 여러 VM 이 함께 바쁠 때 VM 안의 steal 이 17~20% 였다.
+#    CPU 추론은 물리 코어(14)를 넘겨도 빨라지지 않고, 답을 쓰는 속도는 메모리 대역폭에 묶인다
 #  - RAM: 초과 할당하면 VM 들이 메모리를 다 쓸 때 호스트가 VM(=노드)을 강제 종료 → 호스트 RAM 한도까지만.
-#    호스트 자체(~1.9 GiB 실측) + QEMU 오버헤드용 ~2.3 GiB 를 남긴다. 합계 57 GiB (master 12 + worker 15 × 3), 그러고도 ~3.4 GiB 가 남는다
-#    worker 는 2026-11-28 에 7.625 GiB → 15 GiB. 7.625 GiB 로는 Ollama 에 답하는 모델(llama3.2)과 심판 모델(llama3.1:8b)을 함께 올리지 못했다
-#  - master: 8 vCPU, 12 GiB. 2026-11-21 에 4 vCPU / 6 GiB 로는 컨트롤 플레인이 버티지 못했다:
+#    호스트 자체(~1.9 GiB 실측) + QEMU 오버헤드용 ~2.3 GiB 를 남긴다. 합계 60 GiB (master 6 + worker 18 × 3), 호스트 몫 ~2.7 GiB
+#    worker 는 2026-11-28 에 7.625 GiB → 18 GiB. 7.625 GiB 로는 Ollama 에 답하는 모델(llama3.2)과 심판 모델(llama3.1:8b)을 함께 올리지 못했다
+#  - master: 4 vCPU, 6 GiB. 컨트롤 플레인만 돌리고 작업은 모두 worker 에서 돌린다(control-plane NoSchedule 테인트).
+#    2026-11-28 실측: 사용 3.4 GiB, CPU 0.46 코어(Argo CD 와 Kubeflow 대부분을 내린 상태).
+#    2026-11-21 에 4 vCPU / 6 GiB 로 버티지 못해 8 vCPU / 12 GiB 로 키웠으나, 그때는 호스트 메모리가 ECC 오류로 느렸던 때다:
 #    kube-apiserver RSS 2.8 GiB, CPU 평균 93%, kubelet 프로브 실패 20분에 115회, scheduler·controller-manager 재시작 23회.
-#    (이전 기록: 3 GiB 에서 여유 296 MiB, CPU 136% → 6 GiB) vCPU 는 초과 할당이라 worker 몫이 줄지 않음
+#    (이전 기록: 3 GiB 에서 여유 296 MiB, CPU 136% → 6 GiB)
 #  - 디스크 합계 760G (호스트·이미지·백업용 ~100G 남김)
 locals {
   node_name      = "pve"
@@ -20,10 +24,10 @@ locals {
   ssh_public_keys = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHLPvzdqa08aNVIcXJCp3Y5JWr0pfyGiKMoc9pp+cqRS"]
 
   nodes = {
-    "k8s-master"   = { vm_id = 100, ip = "192.168.0.31", cores = 8, memory = 12288, disk = 40 }
-    "k8s-worker-1" = { vm_id = 101, ip = "192.168.0.32", cores = 28, memory = 15360, disk = 240 }
-    "k8s-worker-2" = { vm_id = 102, ip = "192.168.0.33", cores = 28, memory = 15360, disk = 240 }
-    "k8s-worker-3" = { vm_id = 103, ip = "192.168.0.34", cores = 28, memory = 15360, disk = 240 }
+    "k8s-master"   = { vm_id = 100, ip = "192.168.0.31", cores = 4, memory = 6144, disk = 40 }
+    "k8s-worker-1" = { vm_id = 101, ip = "192.168.0.32", cores = 12, memory = 18432, disk = 240 }
+    "k8s-worker-2" = { vm_id = 102, ip = "192.168.0.33", cores = 12, memory = 18432, disk = 240 }
+    "k8s-worker-3" = { vm_id = 103, ip = "192.168.0.34", cores = 12, memory = 18432, disk = 240 }
   }
 }
 
